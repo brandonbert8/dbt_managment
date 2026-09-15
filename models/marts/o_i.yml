@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: order_item
+    description: "harts models joining orders and line items"
+    columns:
+      - name: order_key
+        description: "the foreign key to the orders table"
+        tests:
+          - not_null
+      - name: line_number
+        description: "the specific line item number within an order"
+        tests:
+          - not_null
+      - name: item_discount_amount
+        description: "calculate using the discount_amount macro"
+        tests:
+          - not_null
