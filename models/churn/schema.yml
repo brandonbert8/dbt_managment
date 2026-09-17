@@ -1,0 +1,61 @@
+version: 2
+
+models:
+  - name: stg_crm_customers
+    description: Clientes depurados y deduplicados desde Airbyte.
+    columns:
+      - name: customer_id
+        data_tests: [not_null, unique]
+      - name: age
+        data_tests: [not_null]
+  - name: stg_subscriptions_contracts
+    columns:
+      - name: subscription_id
+        data_tests: [not_null, unique]
+      - name: customer_id
+        data_tests: [not_null]
+  - name: stg_billing_invoices
+    columns:
+      - name: invoice_id
+        data_tests: [not_null, unique]
+  - name: stg_payments
+    columns:
+      - name: payment_id
+        data_tests: [not_null, unique]
+  - name: stg_service_usage
+    columns:
+      - name: usage_id
+        data_tests: [not_null, unique]
+  - name: stg_churn_labels
+    columns:
+      - name: customer_id
+        data_tests: [not_null, unique]
+      - name: churned
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+  - name: int_r5_ml_features
+    description: Características al cierre mensual con etiqueta futura a 90 días; evita fuga temporal.
+    columns:
+      - name: observation_date
+        data_tests: [not_null]
+      - name: label_churn_next_90d
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+  - name: mart_r1_churn_early
+    description: KPI R1 de churn durante los primeros doce meses.
+  - name: mart_r2_contract_opportunity
+    description: Oportunidades R2 para migrar contratos mes a mes.
+  - name: mart_r3_friction
+    description: Fricción mensual R3 de precio, pagos, red y soporte.
+  - name: mart_r4_campaigns
+    description: Efectividad R4 de campañas y retención a 30, 60 y 90 días.
+  - name: mart_r5_crispdm_dataset
+    description: Dataset analítico R5 para modelado CRISP-DM sin variables futuras.
