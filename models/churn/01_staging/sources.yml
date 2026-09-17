@@ -1,0 +1,20 @@
+version: 2
+
+sources:
+  - name: raw_churn
+    description: Fuentes RAW cargadas por Airbyte. dbt solo lee; no modifica estas tablas.
+    database: AIRBYTE_DATABASE
+    schema: AIRBYTE_SCHEMA
+    tables:
+      - name: crm_customers
+      - name: subscriptions_contracts
+      - name: billing_invoices
+      - name: payments
+      - name: service_usage
+      - name: network_quality
+      - name: support_tickets
+      - name: marketing_retention
+      - name: churn_labels
+      - name: macro_monthly
+      - name: metas_retencion_region_mes
+      - name: xref_customer_id
