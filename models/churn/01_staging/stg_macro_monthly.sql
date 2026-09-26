@@ -18,3 +18,5 @@ qualify row_number() over (
   partition by trim(year_month)
   order by _airbyte_extracted_at desc, _airbyte_generation_id desc
 ) = 1
+
+    
