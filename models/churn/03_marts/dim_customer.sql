@@ -1,0 +1,2 @@
+{{ config(materialized='table',schema='DBT_MARTS',tags=['gold','dimension']) }}
+select {{ generate_surrogate_key(['customer_id']) }} as customer_key,{{ generate_surrogate_key(['region']) }} as region_key,customer_id,age,gender,city,region,postal_code,marital_status,senior_citizen,customer_segment,registration_date,has_dependents,dependents_count,estimated_income_band,source_extracted_at as effective_from,true as is_current from {{ ref('int_customer_clean') }}

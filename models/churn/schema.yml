@@ -2,41 +2,327 @@ version: 2
 
 models:
   - name: stg_crm_customers
-    description: Clientes depurados y deduplicados desde Airbyte.
+    description: Bronze tipado, normalizado y deduplicado de clientes provenientes de AIRBYTE_SCHEMA.
     columns:
       - name: customer_id
+        description: Identificador natural del cliente.
         data_tests: [not_null, unique]
       - name: age
+        description: Edad validada entre 18 y 120 años.
         data_tests: [not_null]
+
   - name: stg_subscriptions_contracts
+    description: Bronze de contratos y suscripciones con fechas y categorías normalizadas.
     columns:
       - name: subscription_id
+        description: Identificador natural de la suscripción.
         data_tests: [not_null, unique]
       - name: customer_id
+        description: Cliente propietario de la suscripción.
         data_tests: [not_null]
+
   - name: stg_billing_invoices
+    description: Bronze de facturación con importes numéricos y fechas estandarizadas.
     columns:
       - name: invoice_id
+        description: Identificador natural de factura.
         data_tests: [not_null, unique]
+
   - name: stg_payments
+    description: Bronze de pagos y cobranzas con tipado explícito.
     columns:
       - name: payment_id
+        description: Identificador natural del pago.
         data_tests: [not_null, unique]
+
   - name: stg_service_usage
+    description: Bronze de consumo de servicios a nivel de registro de uso.
     columns:
       - name: usage_id
+        description: Identificador natural del registro de consumo.
         data_tests: [not_null, unique]
+
   - name: stg_churn_labels
+    description: Bronze de etiquetas de churn con valores binarios y fechas normalizadas.
     columns:
       - name: customer_id
+        description: Cliente evaluado.
         data_tests: [not_null, unique]
       - name: churned
+        description: Indicador binario de deserción.
         data_tests:
           - not_null
           - accepted_values:
               arguments:
                 values: [0, 1]
                 quote: false
+
+  - name: int_customer_clean
+    description: Silver maestro de clientes; normaliza texto, imputa dependientes, valida edad y excluye fechas futuras.
+    columns:
+      - name: customer_id
+        description: Clave natural deduplicada del cliente.
+        data_tests: [not_null, unique]
+      - name: age
+        description: Edad válida del cliente.
+        data_tests:
+          - not_null
+          - between:
+              arguments:
+                min_value: 18
+                max_value: 120
+      - name: registration_date
+        description: Fecha de registro válida, nunca futura.
+        data_tests: [not_null]
+      - name: dependents_dq_status
+        description: Trazabilidad de imputación o corrección de dependientes.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['VALID', 'IMPUTED_ZERO', 'CORRECTED_TO_ZERO', 'BOOLEAN_ALIGNED_TO_COUNT']
+
+  - name: int_churn_clean
+    description: Silver de eventos de churn; conserva solo churn confirmado, una fila vigente por cliente y evita fechas futuras.
+    columns:
+      - name: customer_id
+        description: Cliente que desertó.
+        data_tests:
+          - not_null
+          - unique
+          - relationships:
+              arguments:
+                to: ref('int_customer_clean')
+                field: customer_id
+      - name: churn_date
+        description: Fecha efectiva de churn.
+        data_tests: [not_null]
+
+  - name: int_subscription_clean
+    description: Silver de suscripciones; deduplica por subscription_id, estandariza estados y valida secuencia de fechas contractuales.
+    columns:
+      - name: subscription_id
+        description: Clave natural de suscripción.
+        data_tests: [not_null, unique]
+      - name: customer_id
+        description: Cliente asociado.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('int_customer_clean')
+                field: customer_id
+
+  - name: int_billing_clean
+    description: Silver de facturación; recalcula totales, controla montos negativos y valida fechas de emisión y vencimiento.
+    columns:
+      - name: invoice_id
+        description: Clave natural de factura.
+        data_tests: [not_null, unique]
+
+  - name: int_payment_clean
+    description: Silver de pagos; normaliza categorías, corrige métricas negativas e identifica fricción de cobranza.
+    columns:
+      - name: payment_id
+        description: Clave natural del pago.
+        data_tests: [not_null, unique]
+
+  - name: int_usage_clean
+    description: Silver de uso; fuerza métricas no negativas, controla fechas futuras y clasifica calidad del registro.
+    columns:
+      - name: usage_id
+        description: Clave natural del evento de uso.
+        data_tests: [not_null, unique]
+
+  - name: int_network_clean
+    description: Silver de red; valida latencia, pérdida de paquetes, velocidad, señal y caídas de conexión.
+    columns:
+      - name: event_id
+        description: Clave natural del evento de red.
+        data_tests: [not_null, unique]
+
+  - name: int_support_clean
+    description: Silver de soporte; deduplica tickets, estandariza categorías y valida resolución y satisfacción.
+    columns:
+      - name: ticket_id
+        description: Clave natural del ticket.
+        data_tests: [not_null, unique]
+      - name: satisfaction_score
+        description: Satisfacción válida entre cero y cinco; fuera de rango se transforma a nulo.
+        data_tests:
+          - between:
+              arguments:
+                min_value: 0
+                max_value: 5
+
+  - name: int_marketing_clean
+    description: Silver de interacciones de marketing; normaliza respuestas, descuentos y ventanas de retención.
+    columns:
+      - name: interaction_id
+        description: Clave natural de la interacción.
+        data_tests: [not_null, unique]
+
+  - name: int_macro_clean
+    description: Silver mensual de variables macroeconómicas con período normalizado y controles de rango.
+    columns:
+      - name: year_month
+        description: Período mensual ISO YYYY-MM.
+        data_tests: [not_null, unique]
+
+  - name: int_retention_target_clean
+    description: Silver de metas de retención; valida período, ARPU, presupuesto y tasa objetivo.
+    columns:
+      - name: target_id
+        description: Identificador natural de la meta.
+        data_tests: [not_null, unique]
+
+  - name: dim_customer
+    description: Dimensión Gold de cliente recreada desde Silver, con clave subrogada estable.
+    columns:
+      - name: customer_key
+        description: Clave subrogada del cliente.
+        data_tests: [not_null, unique]
+      - name: customer_id
+        description: Clave natural de trazabilidad.
+        data_tests: [not_null, unique]
+
+  - name: dim_subscription
+    description: Dimensión Gold de suscripción y atributos contractuales vigentes.
+    columns:
+      - name: subscription_key
+        description: Clave subrogada de la suscripción.
+        data_tests: [not_null, unique]
+      - name: subscription_id
+        description: Identificador natural.
+        data_tests: [not_null, unique]
+
+  - name: dim_date
+    description: Dimensión calendario Gold para análisis diario y mensual.
+    columns:
+      - name: date_key
+        description: Clave de fecha YYYYMMDD.
+        data_tests: [not_null, unique]
+
+  - name: dim_region
+    description: Dimensión Gold de regiones comerciales.
+    columns:
+      - name: region_key
+        description: Clave subrogada de región.
+        data_tests: [not_null, unique]
+
+  - name: dim_plan
+    description: Dimensión Gold de planes y niveles de servicio.
+    columns:
+      - name: plan_key
+        description: Clave subrogada del plan.
+        data_tests: [not_null, unique]
+
+  - name: dim_agent_team
+    description: Dimensión Gold de equipos de atención al cliente.
+    columns:
+      - name: agent_team_key
+        description: Clave subrogada del equipo.
+        data_tests: [not_null, unique]
+
+  - name: dim_campaign
+    description: Dimensión Gold de campañas de marketing.
+    columns:
+      - name: campaign_key
+        description: Clave subrogada de campaña.
+        data_tests: [not_null, unique]
+
+  - name: dim_network_node
+    description: Dimensión Gold de nodos de red.
+    columns:
+      - name: network_node_key
+        description: Clave subrogada del nodo.
+        data_tests: [not_null, unique]
+
+  - name: fact_billing
+    description: Hecho incremental Gold de facturación al grano de una factura.
+    columns:
+      - name: billing_key
+        description: Clave subrogada del hecho.
+        data_tests: [not_null, unique]
+      - name: invoice_id
+        description: Identificador natural de la factura.
+        data_tests: [not_null]
+
+  - name: fact_payment
+    description: Hecho incremental Gold de pagos al grano de un pago.
+    columns:
+      - name: payment_key
+        description: Clave subrogada del hecho.
+        data_tests: [not_null, unique]
+
+  - name: fact_usage_snapshot
+    description: Hecho incremental Gold de consumo por registro de uso.
+    columns:
+      - name: usage_key
+        description: Clave subrogada del hecho.
+        data_tests: [not_null, unique]
+
+  - name: fact_network_event
+    description: Hecho incremental Gold de calidad de red al grano de evento.
+    columns:
+      - name: network_event_key
+        description: Clave subrogada del hecho.
+        data_tests: [not_null, unique]
+
+  - name: fact_support_ticket
+    description: Hecho incremental Gold de soporte al grano de ticket.
+    columns:
+      - name: support_ticket_key
+        description: Clave subrogada del hecho.
+        data_tests: [not_null, unique]
+
+  - name: fact_marketing_interaction
+    description: Hecho incremental Gold de contacto de marketing.
+    columns:
+      - name: marketing_interaction_key
+        description: Clave subrogada del hecho.
+        data_tests: [not_null, unique]
+
+  - name: fact_churn_event
+    description: Hecho incremental Gold de churn al grano cliente-fecha de deserción.
+    columns:
+      - name: churn_event_key
+        description: Clave subrogada del evento de churn.
+        data_tests: [not_null, unique]
+      - name: churn_date_key
+        description: Clave de fecha de deserción.
+        data_tests: [not_null]
+
+  - name: fact_macro_monthly
+    description: Hecho incremental Gold de indicadores macroeconómicos mensuales.
+    columns:
+      - name: macro_month_key
+        description: Clave subrogada del período.
+        data_tests: [not_null, unique]
+
+  - name: fact_retention_target_monthly
+    description: Hecho incremental Gold de metas de retención por período y región.
+    columns:
+      - name: retention_target_key
+        description: Clave subrogada de la meta.
+        data_tests: [not_null, unique]
+
+  - name: fact_subscription_event
+    description: Hecho incremental Gold de altas y cambios contractuales.
+    columns:
+      - name: subscription_event_key
+        description: Clave subrogada del evento.
+        data_tests: [not_null, unique]
+
+  - name: fact_customer_month_snapshot
+    description: Snapshot Gold mensual cliente-suscripción para cohortes, base activa y tenure.
+    columns:
+      - name: customer_month_key
+        description: Clave subrogada cliente-mes.
+        data_tests: [not_null, unique]
+      - name: month_date_key
+        description: Clave del primer día del mes.
+        data_tests: [not_null]
+
   - name: int_r5_ml_features
     description: Características al cierre mensual con etiqueta futura a 90 días; evita fuga temporal.
     columns:
@@ -49,6 +335,7 @@ models:
               arguments:
                 values: [0, 1]
                 quote: false
+
   - name: mart_r1_churn_early
     description: KPI R1 de churn durante los primeros doce meses.
   - name: mart_r2_contract_opportunity

@@ -2,19 +2,200 @@ version: 2
 
 sources:
   - name: raw_churn
-    description: Fuentes RAW cargadas por Airbyte. dbt solo lee; no modifica estas tablas.
+    description: Fuentes Bronze crudas cargadas por Airbyte en Snowflake; dbt solo las consulta y conserva su trazabilidad técnica.
     database: AIRBYTE_DATABASE
     schema: AIRBYTE_SCHEMA
     tables:
       - name: crm_customers
+        description: Maestro crudo de clientes del CRM.
+        config:
+          loaded_at_field: _airbyte_extracted_at
+          freshness:
+            warn_after: {count: 24, period: hour}
+        columns:
+          - name: customer_id
+            description: Identificador natural del cliente.
+          - name: registration_date
+            description: Fecha original de alta; Silver valida formato y fechas futuras.
+          - name: _airbyte_extracted_at
+            description: Marca de tiempo de extracción de Airbyte.
+
       - name: subscriptions_contracts
+        description: Contratos, planes y suscripciones de clientes.
+        config:
+          loaded_at_field: _airbyte_extracted_at
+          freshness:
+            warn_after: {count: 24, period: hour}
+        columns:
+          - name: subscription_id
+            description: Identificador natural de la suscripción.
+          - name: customer_id
+            description: Cliente asociado.
+          - name: contract_start_date
+            description: Inicio contractual en formato de origen.
+          - name: contract_end_date
+            description: Fin contractual en formato de origen.
+          - name: _airbyte_extracted_at
+            description: Marca de tiempo de extracción de Airbyte.
+
       - name: billing_invoices
+        description: Facturas emitidas y componentes monetarios de facturación.
+        config:
+          loaded_at_field: _airbyte_extracted_at
+          freshness:
+            warn_after: {count: 24, period: hour}
+        columns:
+          - name: invoice_id
+            description: Identificador natural de factura.
+          - name: customer_id
+            description: Cliente facturado.
+          - name: subscription_id
+            description: Suscripción facturada.
+          - name: issue_date
+            description: Fecha original de emisión.
+          - name: due_date
+            description: Fecha original de vencimiento.
+          - name: _airbyte_extracted_at
+            description: Marca de tiempo de extracción de Airbyte.
+
       - name: payments
+        description: Pagos, saldos, mora e intentos fallidos de cobranza.
+        config:
+          loaded_at_field: _airbyte_extracted_at
+          freshness:
+            warn_after: {count: 24, period: hour}
+        columns:
+          - name: payment_id
+            description: Identificador natural del pago.
+          - name: customer_id
+            description: Cliente pagador.
+          - name: invoice_id
+            description: Factura relacionada.
+          - name: payment_date
+            description: Fecha original de pago.
+          - name: _airbyte_extracted_at
+            description: Marca de tiempo de extracción de Airbyte.
+
       - name: service_usage
+        description: Métricas crudas de consumo de datos, voz, SMS y sesiones.
+        config:
+          loaded_at_field: _airbyte_extracted_at
+          freshness:
+            warn_after: {count: 24, period: hour}
+        columns:
+          - name: usage_id
+            description: Identificador natural del registro de consumo.
+          - name: customer_id
+            description: Cliente que generó el consumo.
+          - name: usage_date
+            description: Fecha original de consumo.
+          - name: _airbyte_extracted_at
+            description: Marca de tiempo de extracción de Airbyte.
+
       - name: network_quality
+        description: Telemetría de calidad de red, señal, velocidad y caídas.
+        config:
+          loaded_at_field: _airbyte_extracted_at
+          freshness:
+            warn_after: {count: 24, period: hour}
+        columns:
+          - name: event_id
+            description: Identificador natural del evento de red.
+          - name: customer_id
+            description: Cliente afectado.
+          - name: event_timestamp
+            description: Fecha y hora original del evento.
+          - name: _airbyte_extracted_at
+            description: Marca de tiempo de extracción de Airbyte.
+
       - name: support_tickets
+        description: Tickets e interacciones de soporte al cliente.
+        config:
+          loaded_at_field: _airbyte_extracted_at
+          freshness:
+            warn_after: {count: 24, period: hour}
+        columns:
+          - name: ticket_id
+            description: Identificador natural del ticket.
+          - name: customer_id
+            description: Cliente solicitante.
+          - name: created_at
+            description: Fecha y hora original de creación.
+          - name: resolved_at
+            description: Fecha y hora original de resolución.
+          - name: _airbyte_extracted_at
+            description: Marca de tiempo de extracción de Airbyte.
+
       - name: marketing_retention
+        description: Contactos, ofertas y resultados de campañas de retención.
+        config:
+          loaded_at_field: _airbyte_extracted_at
+          freshness:
+            warn_after: {count: 24, period: hour}
+        columns:
+          - name: interaction_id
+            description: Identificador natural de interacción.
+          - name: customer_id
+            description: Cliente contactado.
+          - name: campaign_id
+            description: Campaña asociada.
+          - name: contact_date
+            description: Fecha original del contacto.
+          - name: _airbyte_extracted_at
+            description: Marca de tiempo de extracción de Airbyte.
+
       - name: churn_labels
+        description: Etiqueta objetivo, fecha y motivo observado de churn.
+        config:
+          loaded_at_field: _airbyte_extracted_at
+          freshness:
+            warn_after: {count: 24, period: hour}
+        columns:
+          - name: customer_id
+            description: Cliente evaluado.
+          - name: churned
+            description: Indicador crudo de churn.
+          - name: churn_date
+            description: Fecha original de deserción.
+          - name: churn_reason
+            description: Motivo registrado de deserción.
+          - name: _airbyte_extracted_at
+            description: Marca de tiempo de extracción de Airbyte.
+
       - name: macro_monthly
+        description: Indicadores macroeconómicos mensuales usados como contexto externo.
+        config:
+          loaded_at_field: _airbyte_extracted_at
+          freshness:
+            warn_after: {count: 45, period: day}
+        columns:
+          - name: year_month
+            description: Período mensual de origen.
+          - name: _airbyte_extracted_at
+            description: Marca de tiempo de extracción de Airbyte.
+
       - name: metas_retencion_region_mes
+        description: Metas comerciales mensuales de retención por región.
+        config:
+          loaded_at_field: _airbyte_extracted_at
+          freshness:
+            warn_after: {count: 45, period: day}
+        columns:
+          - name: target_id
+            description: Identificador natural de la meta.
+          - name: region
+            description: Región comercial.
+          - name: year_month
+            description: Período mensual de la meta.
+          - name: _airbyte_extracted_at
+            description: Marca de tiempo de extracción de Airbyte.
+
       - name: xref_customer_id
+        description: Tabla de correspondencia de identificadores de cliente entre sistemas fuente.
+        config:
+          loaded_at_field: _airbyte_extracted_at
+          freshness:
+            warn_after: {count: 7, period: day}
+        columns:
+          - name: _airbyte_extracted_at
+            description: Marca de tiempo de extracción de Airbyte.
