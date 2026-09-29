@@ -1,61 +1,38 @@
 version: 2
 
 models:
-  - name: stg_crm_customers
-    description: Bronze tipado, normalizado y deduplicado de clientes provenientes de AIRBYTE_SCHEMA.
-    columns:
-      - name: customer_id
-        description: Identificador natural del cliente.
-        data_tests: [not_null, unique]
-      - name: age
-        description: Edad validada entre 18 y 120 años.
-        data_tests: [not_null]
-
-  - name: stg_subscriptions_contracts
-    description: Bronze de contratos y suscripciones con fechas y categorías normalizadas.
-    columns:
-      - name: subscription_id
-        description: Identificador natural de la suscripción.
-        data_tests: [not_null, unique]
-      - name: customer_id
-        description: Cliente propietario de la suscripción.
-        data_tests: [not_null]
-
   - name: stg_billing_invoices
-    description: Bronze de facturación con importes numéricos y fechas estandarizadas.
-    columns:
-      - name: invoice_id
-        description: Identificador natural de factura.
-        data_tests: [not_null, unique]
-
-  - name: stg_payments
-    description: Bronze de pagos y cobranzas con tipado explícito.
-    columns:
-      - name: payment_id
-        description: Identificador natural del pago.
-        data_tests: [not_null, unique]
-
-  - name: stg_service_usage
-    description: Bronze de consumo de servicios a nivel de registro de uso.
-    columns:
-      - name: usage_id
-        description: Identificador natural del registro de consumo.
-        data_tests: [not_null, unique]
+    description: Bronze RAW sin transformaciones; conserva todas las filas, columnas, valores originales y metadatos de Airbyte. La limpieza y validacion se realizan en int_billing_clean.
 
   - name: stg_churn_labels
-    description: Bronze de etiquetas de churn con valores binarios y fechas normalizadas.
-    columns:
-      - name: customer_id
-        description: Cliente evaluado.
-        data_tests: [not_null, unique]
-      - name: churned
-        description: Indicador binario de deserción.
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: [0, 1]
-                quote: false
+    description: Bronze RAW sin transformaciones; conserva todas las filas, columnas, valores originales y metadatos de Airbyte. La limpieza y validacion se realizan en int_churn_clean.
+
+  - name: stg_crm_customers
+    description: Bronze RAW sin transformaciones; conserva todas las filas, columnas, valores originales y metadatos de Airbyte. La limpieza y validacion se realizan en int_customer_clean.
+
+  - name: stg_macro_monthly
+    description: Bronze RAW sin transformaciones; conserva todas las filas, columnas, valores originales y metadatos de Airbyte. La limpieza y validacion se realizan en int_macro_clean.
+
+  - name: stg_marketing_retention
+    description: Bronze RAW sin transformaciones; conserva todas las filas, columnas, valores originales y metadatos de Airbyte. La limpieza y validacion se realizan en int_marketing_clean.
+
+  - name: stg_metas_retencion_region_mes
+    description: Bronze RAW sin transformaciones; conserva todas las filas, columnas, valores originales y metadatos de Airbyte. La limpieza y validacion se realizan en int_retention_target_clean.
+
+  - name: stg_network_quality
+    description: Bronze RAW sin transformaciones; conserva todas las filas, columnas, valores originales y metadatos de Airbyte. La limpieza y validacion se realizan en int_network_clean.
+
+  - name: stg_payments
+    description: Bronze RAW sin transformaciones; conserva todas las filas, columnas, valores originales y metadatos de Airbyte. La limpieza y validacion se realizan en int_payment_clean.
+
+  - name: stg_service_usage
+    description: Bronze RAW sin transformaciones; conserva todas las filas, columnas, valores originales y metadatos de Airbyte. La limpieza y validacion se realizan en int_usage_clean.
+
+  - name: stg_subscriptions_contracts
+    description: Bronze RAW sin transformaciones; conserva todas las filas, columnas, valores originales y metadatos de Airbyte. La limpieza y validacion se realizan en int_subscription_clean.
+
+  - name: stg_support_tickets
+    description: Bronze RAW sin transformaciones; conserva todas las filas, columnas, valores originales y metadatos de Airbyte. La limpieza y validacion se realizan en int_support_clean.
 
   - name: int_customer_clean
     description: Silver maestro de clientes; normaliza texto, imputa dependientes, valida edad y excluye fechas futuras.
@@ -346,3 +323,14 @@ models:
     description: Efectividad R4 de campañas y retención a 30, 60 y 90 días.
   - name: mart_r5_crispdm_dataset
     description: Dataset analítico R5 para modelado CRISP-DM sin variables futuras.
+
+  - name: stg_xref_customer_id
+    description: Bronze RAW de correspondencias; conserva todas las filas, columnas y metadatos originales sin transformaciones.
+
+  - name: int_xref_customer_clean
+    description: Silver de correspondencias; normaliza identificadores y sistemas de origen, valida claves y deduplica por cuenta y cliente.
+    columns:
+      - name: account_id
+        data_tests: [not_null]
+      - name: customer_id
+        data_tests: [not_null]

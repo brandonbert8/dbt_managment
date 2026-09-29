@@ -2,9 +2,9 @@
 
 with invoices as (
   select customer_id, date_trunc('month',issue_date)::date as month_start,
-         sum(total_amount) as billed_amount,
+         sum(total_amount_recalculated) as billed_amount,
          sum(amount_change) as billing_amount_change
-  from {{ ref('stg_billing_invoices') }}
+  from {{ ref('int_billing_clean') }}
   group by 1,2
 ),
 payments as (
@@ -12,32 +12,32 @@ payments as (
          sum(p.failed_attempts) as failed_payment_attempts,
          sum(p.outstanding_balance) as outstanding_balance,
          sum(p.days_late) as total_days_late
-  from {{ ref('stg_payments') }} p
-  join {{ ref('stg_billing_invoices') }} i using (invoice_id)
+  from {{ ref('int_payment_clean') }} p
+  join {{ ref('int_billing_clean') }} i using (invoice_id)
   group by 1,2
 ),
 usage_data as (
   select customer_id, date_trunc('month',usage_date)::date as month_start,
          sum(data_download_gb + data_upload_gb) as total_data_gb,
          sum(voice_minutes) as voice_minutes
-  from {{ ref('stg_service_usage') }}
+  from {{ ref('int_usage_clean') }}
   group by 1,2
 ),
 network as (
   select customer_id, date_trunc('month',event_timestamp)::date as month_start,
-         count_if(connection_dropped) as dropped_connections,
+         count_if(connection_dropped_bool) as dropped_connections,
          sum(outage_duration_seconds) as outage_seconds,
          avg(latency_ms) as avg_latency_ms,
          avg(packet_loss_pct) as avg_packet_loss_pct
-  from {{ ref('stg_network_quality') }}
+  from {{ ref('int_network_clean') }}
   group by 1,2
 ),
 support as (
-  select customer_id, date_trunc('month',created_at)::date as month_start,
+  select customer_id, date_trunc('month',created_timestamp)::date as month_start,
          count(*) as ticket_count,
-         avg(resolution_minutes) as avg_resolution_minutes,
+         avg(resolution_minutes_num) as avg_resolution_minutes,
          avg(satisfaction_score) as avg_satisfaction_score
-  from {{ ref('stg_support_tickets') }}
+  from {{ ref('int_support_clean') }}
   group by 1,2
 ),
 spine as (
@@ -67,7 +67,7 @@ select
   coalesce(t.avg_resolution_minutes,0) as avg_resolution_minutes,
   coalesce(t.avg_satisfaction_score,0) as avg_satisfaction_score
 from spine s
-left join {{ ref('stg_crm_customers') }} c using (customer_id)
+left join {{ ref('int_customer_clean') }} c using (customer_id)
 left join invoices i using (customer_id,month_start)
 left join payments p using (customer_id,month_start)
 left join usage_data u using (customer_id,month_start)
