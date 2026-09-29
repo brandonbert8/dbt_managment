@@ -1,13 +1,37 @@
 {{ config(materialized='view', schema='DBT_INTERMEDIATE', tags=['silver','deep_cleaning','churn']) }}
 
-with source_churn as (
+-- Silver: tipado, limpieza y deduplicacion trasladados desde Bronze.
+with bronze_prepared as (
+    with source_data as (
+      select * from {{ ref('stg_churn_labels') }}
+    ),
+    deduplicated as (
+      select * from source_data
+      where nullif(trim(customer_id),'') is not null
+        and churned in (0,1)
+      qualify row_number() over (
+        partition by trim(customer_id)
+        order by _airbyte_extracted_at desc, _airbyte_generation_id desc
+      ) = 1
+    )
+    select
+      trim(customer_id) as customer_id,
+      churned::integer as churned,
+      churn_date,
+      upper(trim(churn_reason)) as churn_reason,
+      upper(trim(customer_status)) as customer_status,
+      greatest(coalesce(tenure_months_at_end,0),0)::integer as tenure_months_at_end,
+      _airbyte_extracted_at as source_extracted_at
+    from deduplicated
+),
+source_churn as (
     select
         customer_id,
         try_to_date(to_varchar(churn_date)) as churn_date,
         tenure_months_at_end as tenure_months_source,
         coalesce(nullif(upper(trim(churn_reason)), ''), 'UNKNOWN') as churn_reason_raw,
         source_extracted_at::timestamp_ltz as source_extracted_at
-    from {{ ref('stg_churn_labels') }}
+    from bronze_prepared
     where customer_id is not null
       and churned = 1
 ),

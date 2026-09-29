@@ -11,14 +11,14 @@ select
   s.base_monthly_price,
   s.contract_start_date,
   datediff('month',s.contract_start_date,current_date()) as tenure_months,
-  coalesce(cl.churned,0) as churned,
+  iff(cl.customer_id is not null, 1, 0) as churned,
   case
-    when coalesce(cl.churned,0)=1 then 'NO_ACTION_CHURNED'
+    when iff(cl.customer_id is not null, 1, 0)=1 then 'NO_ACTION_CHURNED'
     when datediff('month',s.contract_start_date,current_date())>=12 then 'HIGH'
     when datediff('month',s.contract_start_date,current_date())>=6 then 'MEDIUM'
     else 'LOW'
   end as migration_priority
-from {{ ref('stg_crm_customers') }} c
-join {{ ref('stg_subscriptions_contracts') }} s using (customer_id)
-left join {{ ref('stg_churn_labels') }} cl using (customer_id)
+from {{ ref('int_customer_clean') }} c
+join {{ ref('int_subscription_clean') }} s using (customer_id)
+left join {{ ref('int_churn_clean') }} cl using (customer_id)
 where s.contract_type='MONTH_TO_MONTH'
